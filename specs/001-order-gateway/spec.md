@@ -132,6 +132,10 @@ and confirm the first is accepted and the second is refused naming that componen
    at 2025-03-07T06:36:42-08:00, **Then** its check-and-reserve request reserves nothing, it is
    refused with "Line 1, Grande Iced Brown Sugar Oatmilk Shaken Espresso: Oatmilk is unavailable
    at this store right now.", no payment starts, and SB-10482 Oatmilk stays at 1 / 1 / 0.
+   The refusal uses the CLAUDE.md stock template shared by R2–R5, `Line {line_item_number}, {size}
+   {drink_name}: {component} is unavailable at this store right now.`, with `{component}` =
+   `Oatmilk` exactly as MO-250307-0024's `milk` field writes it, the same component wording User
+   Story 3 scenario 1 (R2) requires.
 4. **Given** store SB-10482 has 1 Oatmilk available, orders MO-250307-0023 and MO-250307-0024 have
    both passed the hours check, and the store stock service handles MO-250307-0023's
    check-and-reserve request first and reserves the 1 Oatmilk, **When** it then handles

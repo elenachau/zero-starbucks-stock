@@ -42,14 +42,16 @@ Stock message template, used by rules R2–R5:
   Rows: MO-250303-0001, MO-250305-0013, MO-250308-0034, MO-250309-0040 (all SB-20516,
   Bellevue Square).
   Tested by: spec.md User Story 2 scenario 1, SC-004.
-- **R2 `base_out_of_stock`.** When the line's milk (its drink base) has available ≤ 0, the
-  order MUST be refused and `{component}` MUST be the milk name. A line with milk `None`
+- **R2 `base_out_of_stock`.** When the line's milk (its drink base) has available ≤ 0, the order
+  MUST be refused and `{component}` MUST be the milk exactly as the order's `milk` field writes it
+  (for example `Oatmilk`, `Almondmilk`; never `Oat milk` or `oat_milk`). A line with milk `None`
   MUST NOT be checked for milk.
-  Rows: MO-250304-0007, MO-250304-0010 (Almondmilk); MO-250307-0029, MO-250307-0031,
-  MO-250308-0033, MO-250309-0037 (Oatmilk).
+  Rows: MO-250304-0007, MO-250304-0010 (Almondmilk); MO-250307-0029, MO-250307-0031, MO-250308-0033,
+  MO-250309-0037 (Oatmilk).
   Tested by: spec.md User Story 3 scenario 1.
 - **R3 `add_in_out_of_stock`.** When any add-in on the line has available ≤ 0, the order MUST
-  be refused and `{component}` MUST be that add-in's name.
+  be refused and `{component}` MUST be that add-in exactly as the order's `add_ins` field writes it
+  (for example `Caramel Drizzle`).
   Rows: MO-250305-0014, MO-250308-0035 (Vanilla Sweet Cream Cold Foam); MO-250306-0019,
   MO-250309-0039 (Caramel Drizzle); MO-250309-0038 (Brown Sugar Syrup).
   Tested by: spec.md User Story 3 scenario 2.
