@@ -151,17 +151,35 @@ with the try-again message and no payment starts.
 1. **Given** the store stock service does not answer the check-and-reserve request within 2 seconds,
    **When** order MO-250303-0005 (store SB-11937, 1 Grande Iced Brown Sugar Oatmilk Shaken Espresso,
    Oatmilk, Brown Sugar Syrup) is submitted at 2025-03-03T07:22:40-08:00, **Then** it is refused
-   with "We can't confirm this store's stock right now. Please try again in a moment." and no
+   with "We can't reach this store right now. Please try again in a moment." and no
    payment starts.
 2. **Given** the store stock service returns an error for the hours question, **When** order
-   MO-250303-0005 is submitted, **Then** it is refused with "We can't confirm this store's stock
-   right now. Please try again in a moment.", no check-and-reserve request is sent, and no payment
-   starts.
+   MO-250303-0005 is submitted, **Then** it is refused with "We can't reach this store right now.
+   Please try again in a moment.", no check-and-reserve request is sent, and no payment starts.
 3. **Given** store SB-10482 has 1 Oatmilk available and the store stock service does not answer
    MO-250307-0023's check-and-reserve request within 2 seconds, **When** order MO-250307-0023 (1
    Grande Caffè Latte, Oatmilk) is submitted at 2025-03-07T06:31:07-08:00, **Then** it is refused
-   with "We can't confirm this store's stock right now. Please try again in a moment." and no
+   with "We can't reach this store right now. Please try again in a moment." and no
    payment starts.
+
+---
+
+### User Story 6 - Refuse an order for a store that does not exist (Priority: P6)
+
+A customer's order carries a store ID the store stock service has no record of. The order service
+refuses it before asking about hours or stock, and tells the customer the store can't be found.
+
+**Why this priority**: Without it, an unknown store could be treated as open with no stock limits.
+
+**Independent Test**: Send an order with a store ID that has no store record and confirm the
+not-found refusal comes back without any hours or stock question.
+
+**Acceptance Scenarios**:
+
+1. **Given** the store stock service has no store record for `SB-99999` (an ID that does not appear
+   in the mobile orders CSV), **When** an order with store ID `SB-99999` for 1 Grande Pike Place
+   Roast, milk `None`, is submitted, **Then** it is refused with "We can't find store SB-99999.",
+   no hours question or check-and-reserve request is sent, and no payment starts.
 
 ---
 
@@ -184,9 +202,10 @@ with the try-again message and no payment starts.
 - Payment fails or no payment result arrives within 10 minutes: the order's reservation is
   released and the stock becomes available to the next order.
 - The store ID has no store record: the order is refused with "We can't find store {store ID}."
+  (User Story 6).
 - The store stock service errors or does not answer within 2 seconds: the order is refused with "We
-  can't confirm this store's stock right now. Please try again in a moment." and no payment starts
-  (User Story 5).
+  can't reach this store right now. Please try again in a moment." and no payment starts (User Story
+  5).
 - A check-and-reserve request times out but the store stock service did reserve the stock: the
   order is still refused, payment is never confirmed, and the reservation is released after 10
   minutes (FR-008a).
@@ -223,9 +242,10 @@ with the try-again message and no payment starts.
   reservation at once when payment fails. The store stock service MUST release a reservation
   itself after 10 minutes when the order service has not confirmed payment.
 - **FR-008b**: When the store stock service returns an error, or does not answer within 2 seconds,
-  for the hours question or the check-and-reserve request, the order service MUST refuse the order
-  with the message "We can't confirm this store's stock right now. Please try again in a moment.",
-  MUST NOT start payment, and MUST NOT treat the store as open or the stock as available.
+  for the store record lookup, the hours question, or the check-and-reserve request, the order
+  service MUST refuse the order with the message "We can't reach this store right now. Please try
+  again in a moment.", MUST NOT start payment, and MUST NOT treat the store as open or the stock as
+  available. This message MUST NOT name a line or component.
 - **FR-009**: The gateway MUST pass the store ID on exactly as sent, in the mobile orders CSV
   format (for example `SB-10482`). When the store stock service has no store record for that ID,
   the order service MUST refuse the order before any hours or stock question with the message

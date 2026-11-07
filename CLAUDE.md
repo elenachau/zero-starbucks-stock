@@ -16,7 +16,7 @@ Rules every agent and contributor MUST follow in this repo. The project constitu
    contract test passes in CI for every service it touches, including the consumers of any
    contract it changes. A failing or skipped contract test blocks the merge.
 
-## Refusal rules (one per refused order type)
+## Refusal rules
 
 Source: `data/mobile_orders_2025-03-03_to_09.csv`, rows with `expected_outcome = refused`
 (21 rows, 5 scenario tags). This CSV is the only data source for these rules; store IDs are
@@ -24,10 +24,12 @@ used exactly as it writes them (for example `SB-10482`). The store stock service
 service that holds store hours, closure flags, stock and reservations; the order service MUST
 ask it and MUST NOT hold any of them. Stock is judged by the store stock service with this rule:
 available = `quantity_on_hand` − `reserved_quantity`, and a component is out when
-available ≤ 0. Checks MUST run in this order: store hours first, then stock, line by line.
+available ≤ 0. Checks MUST run in this order: store record (R7), then store hours (R1), then
+one check-and-reserve request for stock (R2–R5), line by line.
 The order service MUST refuse at the first failing check and MUST NOT take payment for a
 refused order. Every refusal MUST return the exact message below, with the placeholders
-filled from the order line. All 21 refused rows MUST also pass spec.md SC-001.
+filled from the order line. All 21 refused rows MUST also pass spec.md SC-001. R1–R5 come
+from the CSV; R6–R7 are refusals the spec defines that have no CSV row.
 
 Stock message template, used by rules R2–R5:
 `Line {line_item_number}, {size} {drink_name}: {component} is unavailable at this store right now.`
@@ -67,3 +69,16 @@ Stock message template, used by rules R2–R5:
   that component. The order service MUST NOT accept part of a line.
   Rows: MO-250307-0028 (quantity 4), MO-250307-0030 (quantity 3), both Brown Sugar Syrup.
   Tested by: spec.md User Story 3 scenario 3.
+
+### Refusals defined by the spec (no CSV row)
+
+- **R6 store stock service unavailable.** When the store stock service returns an error, or does
+  not answer within 2 seconds, for the store record, hours, or check-and-reserve request, the
+  order MUST be refused, MUST NOT start payment, and MUST NOT be treated as open or in stock.
+  This message MUST NOT name a line or component, because nothing was found to be unavailable.
+  Message: `We can't reach this store right now. Please try again in a moment.`
+  Tested by: spec.md User Story 5 scenarios 1-3 (scenario 3: MO-250307-0023 times out).
+- **R7 unknown store.** When the store stock service has no store record for the order's store
+  ID, the order MUST be refused before any hours or stock question. Message:
+  `We can't find store {store_id}.`
+  Tested by: spec.md User Story 6 scenario 1.
