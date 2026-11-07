@@ -118,6 +118,13 @@ and confirm the first is accepted and the second is refused naming that componen
    Shaken Espresso, Oatmilk, Brown Sugar Syrup) is submitted at 06:36, **Then** it is refused with
    "Line 1, Grande Iced Brown Sugar Oatmilk Shaken Espresso: Oatmilk is unavailable at this store
    right now." and no payment starts.
+3. **Given** the store stock service reported 1 Oatmilk available at store SB-10482 when the
+   customer opened the menu before 2025-03-07T06:31:07-08:00, and order MO-250307-0023 submitted
+   at 2025-03-07T06:31:07-08:00 was then accepted and reserved that 1 Oatmilk, **When** the same
+   customer submits order MO-250307-0024 (1 Grande Iced Brown Sugar Oatmilk Shaken Espresso,
+   Oatmilk, Brown Sugar Syrup) at 2025-03-07T06:36:42-08:00, **Then** it is refused with "Line 1,
+   Grande Iced Brown Sugar Oatmilk Shaken Espresso: Oatmilk is unavailable at this store right
+   now.", no stock is reserved for it, and no payment starts.
 
 ---
 
@@ -133,6 +140,9 @@ and confirm the first is accepted and the second is refused naming that componen
   refused.
 - A drink uses a milk or add-in with no stock record at that store (for example Whole Milk,
   Soymilk, Extra Shot): it is treated as unavailable and the order is refused naming it.
+- A component shows as available on the menu but is gone by the time the order is submitted:
+  the order is checked again at submission and refused with the stock message naming that
+  component (User Story 4, scenario 3).
 - Payment fails or no payment result arrives within 10 minutes: the order's reservation is
   released and the stock becomes available to the next order.
 - The store ID has no store record: the order is refused with "We can't find store {store ID}."
@@ -178,6 +188,9 @@ and confirm the first is accepted and the second is refused naming that componen
   opening hours, temporary-closure flags, stock records and reservations. The gateway and the
   order service MUST get them only through the store stock service's published endpoints
   (CLAUDE.md rule 2, no shared database).
+- **FR-013**: Any availability shown on the menu MUST come from the store stock service at the
+  time it is shown, is display only, and MUST NOT reserve or hold stock. The order service MUST
+  check hours and stock again when the order is submitted and MUST use that answer, not the menu's.
 
 ### Key Entities
 

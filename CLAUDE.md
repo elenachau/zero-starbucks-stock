@@ -59,7 +59,8 @@ Stock message template, used by rules R2–R5:
   component named.
   Rows: MO-250307-0023 accepted (last Oatmilk); MO-250307-0024, MO-250307-0025,
   MO-250307-0027 refused (Oatmilk); MO-250307-0026 refused (Vanilla Sweet Cream Cold Foam).
-  Tested by: spec.md User Story 4 scenarios 1-2.
+  Tested by: spec.md User Story 4 scenarios 1-3 (scenario 3: available on the menu, gone at
+  submission).
 - **R5 `insufficient_quantity`.** When a line's `quantity` needs more of a component than is
   available, the order MUST be refused even if available > 0, and `{component}` MUST be
   that component. The order service MUST NOT accept part of a line.
