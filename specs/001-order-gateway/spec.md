@@ -157,6 +157,11 @@ with the try-again message and no payment starts.
    MO-250303-0005 is submitted, **Then** it is refused with "We can't confirm this store's stock
    right now. Please try again in a moment.", no check-and-reserve request is sent, and no payment
    starts.
+3. **Given** store SB-10482 has 1 Oatmilk available and the store stock service does not answer
+   MO-250307-0023's check-and-reserve request within 2 seconds, **When** order MO-250307-0023 (1
+   Grande Caffè Latte, Oatmilk) is submitted at 2025-03-07T06:31:07-08:00, **Then** it is refused
+   with "We can't confirm this store's stock right now. Please try again in a moment." and no
+   payment starts.
 
 ---
 
