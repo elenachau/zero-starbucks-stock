@@ -166,6 +166,11 @@ with the try-again message and no payment starts.
    2025-03-07T06:31:07-08:00, **Then** it is refused with "We can't reach this store right now.
    Please try again in a moment." (not "We can't find store SB-10482."), no hours question or
    check-and-reserve request is sent, and no payment starts.
+5. **Given** store SB-10482 has a store record and the store stock service does not answer the
+   hours question for SB-10482 within 2 seconds, **When** order MO-250307-0023 (1 Grande Caffè
+   Latte, Oatmilk) is submitted at 2025-03-07T06:31:07-08:00, **Then** it is refused with "We
+   can't reach this store right now. Please try again in a moment." (not the R1 closed-store
+   message), no check-and-reserve request is sent, and no payment starts.
 
 ---
 
