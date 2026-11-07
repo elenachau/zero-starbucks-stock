@@ -156,11 +156,14 @@ with the try-again message and no payment starts.
 2. **Given** the store stock service returns an error for the hours question, **When** order
    MO-250303-0005 is submitted, **Then** it is refused with "We can't reach this store right now.
    Please try again in a moment.", no check-and-reserve request is sent, and no payment starts.
-3. **Given** store SB-10482 has 1 Oatmilk available and the store stock service does not answer
-   MO-250307-0023's check-and-reserve request within 2 seconds, **When** order MO-250307-0023 (1
-   Grande Caffè Latte, Oatmilk) is submitted at 2025-03-07T06:31:07-08:00, **Then** it is refused
-   with "We can't reach this store right now. Please try again in a moment." and no
-   payment starts.
+3. **Given** store SB-10482 has 1 Oatmilk available, and the store stock service answers the store
+   record lookup (SB-10482 exists) and the hours question (SB-10482 is open at
+   2025-03-07T06:31:07-08:00) but does not answer MO-250307-0023's check-and-reserve request within
+   2 seconds, **When** order MO-250307-0023 (1 Grande Caffè Latte, Oatmilk) is submitted at
+   2025-03-07T06:31:07-08:00, **Then** it is refused with "We can't reach this store right now.
+   Please try again in a moment.", no payment starts, and if the store stock service did reserve
+   the 1 Oatmilk for that request, it releases it no later than 10 minutes after the request,
+   after which SB-10482 again has 1 Oatmilk available.
 4. **Given** the store stock service does not answer the store record lookup for SB-10482 within 2
    seconds, **When** order MO-250307-0023 (1 Grande Caffè Latte, Oatmilk) is submitted at
    2025-03-07T06:31:07-08:00, **Then** it is refused with "We can't reach this store right now.

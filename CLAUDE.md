@@ -53,15 +53,14 @@ Stock message template, used by rules R2–R5:
   Rows: MO-250305-0014, MO-250308-0035 (Vanilla Sweet Cream Cold Foam); MO-250306-0019,
   MO-250309-0039 (Caramel Drizzle); MO-250309-0038 (Brown Sugar Syrup).
   Tested by: spec.md User Story 3 scenario 2.
-- **R4 `stock_runs_out_mid_order`.** Once an order passes the hours check, the order service
-  MUST send the store stock service one check-and-reserve request for the whole order before
-  payment starts. The store stock service MUST either add every component quantity to
-  `reserved_quantity` or reserve nothing, and MUST handle requests for a store one at a time, so
-  the next order is checked against the reduced available stock. The order that takes the last available unit
-  MUST be accepted, and every later order needing that component MUST be refused with that
-  component named.
-  Rows: MO-250307-0023 accepted (last Oatmilk); MO-250307-0024, MO-250307-0025,
-  MO-250307-0027 refused (Oatmilk); MO-250307-0026 refused (Vanilla Sweet Cream Cold Foam).
+- **R4 `stock_runs_out_mid_order`.** Once an order passes the hours check, the order service MUST
+  send the store stock service one check-and-reserve request for the whole order before payment
+  starts. The store stock service MUST either add every component quantity to `reserved_quantity` or
+  reserve nothing, and MUST handle requests for a store one at a time, so the next order is checked
+  against the reduced available stock. The order that takes the last available unit MUST be
+  accepted, and every later order needing that component MUST be refused with that component named.
+  Rows: MO-250307-0023 accepted (last Oatmilk); MO-250307-0024, MO-250307-0025, MO-250307-0027
+  refused (Oatmilk); MO-250307-0026 refused (Vanilla Sweet Cream Cold Foam).
   Tested by: spec.md User Story 4 scenarios 1-4 (scenario 3: available on the menu, gone at
   submission; scenario 4: two check-and-reserve requests race for the last unit).
 - **R5 `insufficient_quantity`.** When a line's `quantity` needs more of a component than is
@@ -72,15 +71,17 @@ Stock message template, used by rules R2–R5:
 
 ### Refusals defined by the spec (no CSV row)
 
-- **R6 store stock service unavailable.** When the store stock service returns an error, or does
-  not answer within 2 seconds, for the store record, hours, or check-and-reserve request, the
-  order MUST be refused, MUST NOT start payment, and MUST NOT be treated as open or in stock.
-  This message MUST NOT name a line or component, because nothing was found to be unavailable.
+- **R6 store stock service unavailable.** When the store stock service returns an error, or does not
+  answer within 2 seconds, for the store record, hours, or check-and-reserve request, the order MUST
+  be refused, MUST NOT start payment, and MUST NOT be treated as open or in stock. This message MUST
+  NOT name a line or component, because nothing was found to be unavailable.
   Message: `We can't reach this store right now. Please try again in a moment.`
   A store record lookup that errors or times out MUST get this message, never R7's.
-  Tested by: spec.md User Story 5 scenarios 1-5 (scenario 3: MO-250307-0023's check-and-reserve
-  times out; scenario 4: the store record lookup times out before hours are checked; scenario 5:
-  the hours question times out).
+  If a timed-out check-and-reserve request did reserve stock, the store stock service MUST release
+  it no later than 10 minutes after the request.
+  Tested by: spec.md User Story 5 scenarios 1-5 (scenario 3: record and hours answer, then
+  MO-250307-0023's check-and-reserve times out and any held unit is released; scenario 4: the store
+  record lookup times out before hours are checked; scenario 5: the hours question times out).
 - **R7 unknown store.** When the store stock service has no store record for the order's store
   ID, the order MUST be refused before any hours or stock question. Message:
   `We can't find store {store_id}.`
