@@ -51,16 +51,17 @@ Stock message template, used by rules R2–R5:
   Rows: MO-250305-0014, MO-250308-0035 (Vanilla Sweet Cream Cold Foam); MO-250306-0019,
   MO-250309-0039 (Caramel Drizzle); MO-250309-0038 (Brown Sugar Syrup).
   Tested by: spec.md User Story 3 scenario 2.
-- **R4 `stock_runs_out_mid_order`.** Once an order passes its checks, the order service MUST
-  ask the store stock service to add its component quantities to `reserved_quantity` before
-  payment starts, so the next order
-  is checked against the reduced available stock. The order that takes the last available unit
+- **R4 `stock_runs_out_mid_order`.** Once an order passes the hours check, the order service
+  MUST send the store stock service one check-and-reserve request for the whole order before
+  payment starts. The store stock service MUST either add every component quantity to
+  `reserved_quantity` or reserve nothing, and MUST handle requests for a store one at a time, so
+  the next order is checked against the reduced available stock. The order that takes the last available unit
   MUST be accepted, and every later order needing that component MUST be refused with that
   component named.
   Rows: MO-250307-0023 accepted (last Oatmilk); MO-250307-0024, MO-250307-0025,
   MO-250307-0027 refused (Oatmilk); MO-250307-0026 refused (Vanilla Sweet Cream Cold Foam).
-  Tested by: spec.md User Story 4 scenarios 1-3 (scenario 3: available on the menu, gone at
-  submission).
+  Tested by: spec.md User Story 4 scenarios 1-4 (scenario 3: available on the menu, gone at
+  submission; scenario 4: two check-and-reserve requests race for the last unit).
 - **R5 `insufficient_quantity`.** When a line's `quantity` needs more of a component than is
   available, the order MUST be refused even if available > 0, and `{component}` MUST be
   that component. The order service MUST NOT accept part of a line.

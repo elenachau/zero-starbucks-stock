@@ -31,8 +31,8 @@
 
 A customer sends a mobile order to the gateway with a store ID and one or more drink lines. Each
 line names the drink, size, milk, add-ins and quantity. The gateway passes the order to the order
-service, which asks the store stock service whether the store is open and every component is in
-stock, and only then sends the customer on to payment.
+service, which asks the store stock service whether the store is open, then asks it to check and
+reserve every component in one request, and only then sends the customer on to payment.
 
 **Why this priority**: Accepting orders that can actually be made is the reason the feature exists.
 
@@ -125,6 +125,38 @@ and confirm the first is accepted and the second is refused naming that componen
    Oatmilk, Brown Sugar Syrup) at 2025-03-07T06:36:42-08:00, **Then** it is refused with "Line 1,
    Grande Iced Brown Sugar Oatmilk Shaken Espresso: Oatmilk is unavailable at this store right
    now.", no stock is reserved for it, and no payment starts.
+4. **Given** store SB-10482 has 1 Oatmilk available, orders MO-250307-0023 and MO-250307-0024 have
+   both passed the hours check, and the store stock service handles MO-250307-0023's
+   check-and-reserve request first and reserves the 1 Oatmilk, **When** it then handles
+   MO-250307-0024's check-and-reserve request, **Then** it reserves nothing for MO-250307-0024
+   and reports Oatmilk as unavailable, and MO-250307-0024 is refused with "Line 1, Grande Iced
+   Brown Sugar Oatmilk Shaken Espresso: Oatmilk is unavailable at this store right now." and no
+   payment starts.
+
+---
+
+### User Story 5 - Refuse an order when the store stock service cannot answer (Priority: P5)
+
+A customer submits an order while the store stock service is down or slow. The order service does
+not guess: it refuses the order without payment and asks the customer to try again.
+
+**Why this priority**: Assuming stock is there when it cannot be confirmed would take payment for
+drinks that may not exist.
+
+**Independent Test**: Make the store stock service fail to answer and confirm the order is refused
+with the try-again message and no payment starts.
+
+**Acceptance Scenarios**:
+
+1. **Given** the store stock service does not answer the check-and-reserve request within 2 seconds,
+   **When** order MO-250303-0005 (store SB-11937, 1 Grande Iced Brown Sugar Oatmilk Shaken Espresso,
+   Oatmilk, Brown Sugar Syrup) is submitted at 2025-03-03T07:22:40-08:00, **Then** it is refused
+   with "We can't confirm this store's stock right now. Please try again in a moment." and no
+   payment starts.
+2. **Given** the store stock service returns an error for the hours question, **When** order
+   MO-250303-0005 is submitted, **Then** it is refused with "We can't confirm this store's stock
+   right now. Please try again in a moment.", no check-and-reserve request is sent, and no payment
+   starts.
 
 ---
 
@@ -136,8 +168,9 @@ and confirm the first is accepted and the second is refused naming that componen
 - A line's quantity needs more of a component than is left: the whole order is refused naming
   that component, even though some is left (User Story 3, scenario 3).
 - Two orders arrive close together for the last unit of a component: the store stock service
-  reserves the unit for the first order before payment, so the second sees available 0 and is
-  refused.
+  handles their check-and-reserve requests one at a time, reserves the unit for the first, and
+  reserves nothing for the second, which is refused naming that component (User Story 4,
+  scenario 4).
 - A drink uses a milk or add-in with no stock record at that store (for example Whole Milk,
   Soymilk, Extra Shot): it is treated as unavailable and the order is refused naming it.
 - A component shows as available on the menu but is gone by the time the order is submitted:
@@ -146,6 +179,12 @@ and confirm the first is accepted and the second is refused naming that componen
 - Payment fails or no payment result arrives within 10 minutes: the order's reservation is
   released and the stock becomes available to the next order.
 - The store ID has no store record: the order is refused with "We can't find store {store ID}."
+- The store stock service errors or does not answer within 2 seconds: the order is refused with "We
+  can't confirm this store's stock right now. Please try again in a moment." and no payment starts
+  (User Story 5).
+- A check-and-reserve request times out but the store stock service did reserve the stock: the
+  order is still refused, payment is never confirmed, and the reservation is released after 10
+  minutes (FR-008a).
 
 ## Requirements *(mandatory)*
 
@@ -155,25 +194,33 @@ and confirm the first is accepted and the second is refused naming that componen
   with line number, drink name, size, milk (or `None`), zero or more add-ins, and quantity.
 - **FR-002**: The gateway MUST reject an order with no lines, a missing store ID, or a quantity
   below 1, without contacting the order service.
-- **FR-003**: The order service MUST ask the store stock service about store hours before asking
-  about stock, and MUST get both answers before payment.
+- **FR-003**: The order service MUST ask the store stock service about store hours first, then send
+  one check-and-reserve request for the whole order, and MUST get both answers before payment.
 - **FR-004**: The order service MUST refuse an order when the store stock service answers that the
   store is closed at the order's submission time, with the message "{store name} is closed right
   now and can't take mobile orders."
-- **FR-005**: The order service MUST refuse an order when the store stock service reports any
-  line's milk or add-in as unavailable, with the message "Line {n}, {size} {drink}: {component}
-  is unavailable at this store right now."
+- **FR-005**: The order service MUST refuse an order when the store stock service's
+  check-and-reserve answer reports a line's milk or add-in as unavailable, with the message "Line
+  {n}, {size} {drink}: {component} is unavailable at this store right now."
 - **FR-006**: The store stock service MUST judge stock as on hand minus reserved, and report a
   component as unavailable when that is 0 or less, or less than the quantity the line needs. The
   order service MUST NOT compute availability itself.
 - **FR-007**: The order service MUST NOT start payment for a refused order.
-- **FR-008**: Stock MUST be reserved before payment: once the hours and stock checks pass, the
-  order service MUST ask the store stock service to add each line's component quantities to that
-  store's reserved quantity, and only then start payment. The store stock service MUST check and
-  reserve in one step, so two orders cannot both reserve the same last unit.
+- **FR-008**: Stock MUST be checked and reserved in one request, before payment. Once the hours
+  check passes, the order service MUST send the store stock service one check-and-reserve request
+  covering every line, and MUST NOT ask about stock in a separate call first. The store stock
+  service MUST either add every line's component quantities to that store's reserved quantity, or
+  reserve nothing and report the first unavailable component (lines in line-number order; within
+  a line, milk first, then add-ins in the order listed). It MUST handle requests for the same
+  store one at a time, so two orders cannot both reserve the same last unit. The order service
+  MUST start payment only after every line is reserved.
 - **FR-008a**: The order service MUST ask the store stock service to release an order's
   reservation at once when payment fails. The store stock service MUST release a reservation
   itself after 10 minutes when the order service has not confirmed payment.
+- **FR-008b**: When the store stock service returns an error, or does not answer within 2 seconds,
+  for the hours question or the check-and-reserve request, the order service MUST refuse the order
+  with the message "We can't confirm this store's stock right now. Please try again in a moment.",
+  MUST NOT start payment, and MUST NOT treat the store as open or the stock as available.
 - **FR-009**: The gateway MUST pass the store ID on exactly as sent, in the mobile orders CSV
   format (for example `SB-10482`). When the store stock service has no store record for that ID,
   the order service MUST refuse the order before any hours or stock question with the message
@@ -190,7 +237,8 @@ and confirm the first is accepted and the second is refused naming that componen
   (CLAUDE.md rule 2, no shared database).
 - **FR-013**: Any availability shown on the menu MUST come from the store stock service at the
   time it is shown, is display only, and MUST NOT reserve or hold stock. The order service MUST
-  check hours and stock again when the order is submitted and MUST use that answer, not the menu's.
+  check hours and send the check-and-reserve request when the order is submitted, and MUST use
+  those answers, not the menu's.
 
 ### Key Entities
 
@@ -212,9 +260,10 @@ and confirm the first is accepted and the second is refused naming that componen
 
 ### Measurable Outcomes
 
-- **SC-001**: Every order in the sample week (data/mobile_orders_2025-03-03_to_09.csv) gets the
-  outcome in its `expected_outcome` column (19 accepted, 21 refused), and each of the 21 refused
-  orders returns exactly the text in its `expected_message` column, character for character.
+- **SC-001**: With the store stock service answering normally, every order in the sample week
+  (data/mobile_orders_2025-03-03_to_09.csv) gets the outcome in its `expected_outcome` column (19
+  accepted, 21 refused), and each of the 21 refused orders returns exactly the text in its
+  `expected_message` column, character for character.
 - **SC-002**: No refused order in the sample week starts a payment (0 of 21).
 - **SC-003**: Customers receive an accept or refuse answer within 2 seconds of submitting.
 - **SC-004**: Orders sent to a closed store are refused with "Bellevue Square is closed right now
