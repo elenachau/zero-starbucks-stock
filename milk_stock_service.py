@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Milk stock service.
+"""Milk stock service (FastAPI).
 
 Reads a store stock snapshot CSV and reports whether milk is in stock.
 
@@ -13,15 +13,17 @@ Endpoints:
   GET /milk/oat                -> shortcut for oat milk rows only
 
 Run:
-  python3 milk_stock_service.py [--csv PATH] [--port 8080]
+  uvicorn milk_stock_service:app --port 8080
+  (set STOCK_SNAPSHOT_CSV to read a different snapshot)
 """
 
-import argparse
 import csv
-import json
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from typing import Optional
+
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 DEFAULT_CSV = Path(__file__).parent / "data" / "stock_snapshot_2025-03-07_0645.csv"
 MILK_COMPONENTS = {"oat_milk", "almond_milk", "two_pct_milk"}
@@ -52,61 +54,42 @@ def load_milk_rows(csv_path):
     return rows
 
 
-def make_handler(csv_path):
-    class Handler(BaseHTTPRequestHandler):
-        def _send(self, status, body):
-            data = json.dumps(body, indent=2).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
+def create_app(csv_path=None):
+    csv_path = Path(csv_path or os.environ.get("STOCK_SNAPSHOT_CSV", DEFAULT_CSV))
+    load_milk_rows(csv_path)  # fail fast if the CSV is missing or malformed
 
-        def do_GET(self):
-            url = urlparse(self.path)
-            if url.path == "/health":
-                return self._send(200, {"status": "ok"})
+    app = FastAPI(title="Milk stock service")
 
-            if url.path in ("/milk", "/milk/oat"):
-                component = "oat_milk" if url.path == "/milk/oat" else \
-                    parse_qs(url.query).get("component", [None])[0]
-                if component and component not in MILK_COMPONENTS:
-                    return self._send(400, {
-                        "error": f"unknown milk component '{component}'",
-                        "valid": sorted(MILK_COMPONENTS),
-                    })
-                # Re-read on every request so a refreshed snapshot is picked up.
-                rows = load_milk_rows(csv_path)
-                if component:
-                    rows = [r for r in rows if r["component_id"] == component]
-                return self._send(200, {
-                    "snapshot": str(Path(csv_path).name),
-                    "component": component or "all_milk",
-                    "sold_out_count": sum(r["sold_out"] for r in rows),
-                    "rows": rows,
-                })
+    def milk_response(component):
+        if component and component not in MILK_COMPONENTS:
+            return JSONResponse(status_code=400, content={
+                "error": f"unknown milk component '{component}'",
+                "valid": sorted(MILK_COMPONENTS),
+            })
+        # Re-read on every request so a refreshed snapshot is picked up.
+        rows = load_milk_rows(csv_path)
+        if component:
+            rows = [r for r in rows if r["component_id"] == component]
+        return {
+            "snapshot": csv_path.name,
+            "component": component or "all_milk",
+            "sold_out_count": sum(r["sold_out"] for r in rows),
+            "rows": rows,
+        }
 
-            self._send(404, {"error": "not found"})
+    @app.get("/health")
+    def health():
+        return {"status": "ok"}
 
-        def log_message(self, fmt, *args):
-            print(f"[milk-service] {self.address_string()} {fmt % args}")
+    @app.get("/milk")
+    def milk(component: Optional[str] = None):
+        return milk_response(component)
 
-    return Handler
+    @app.get("/milk/oat")
+    def milk_oat():
+        return milk_response("oat_milk")
+
+    return app
 
 
-def main():
-    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--csv", default=str(DEFAULT_CSV), help="path to stock snapshot CSV")
-    p.add_argument("--host", default="127.0.0.1")
-    p.add_argument("--port", type=int, default=8080)
-    args = p.parse_args()
-
-    load_milk_rows(args.csv)  # fail fast if the CSV is missing or malformed
-    server = ThreadingHTTPServer((args.host, args.port), make_handler(args.csv))
-    print(f"[milk-service] reading {args.csv}")
-    print(f"[milk-service] listening on http://{args.host}:{args.port}")
-    server.serve_forever()
-
-
-if __name__ == "__main__":
-    main()
+app = create_app()

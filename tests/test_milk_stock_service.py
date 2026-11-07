@@ -1,12 +1,7 @@
-import json
-import threading
-import urllib.error
-import urllib.request
-from http.server import ThreadingHTTPServer
-
 import pytest
+from fastapi.testclient import TestClient
 
-from milk_stock_service import DEFAULT_CSV, load_milk_rows, make_handler
+from milk_stock_service import DEFAULT_CSV, create_app, load_milk_rows
 
 HEADER = (
     "store_id,store_name,store_open,component_id,component_name,component_type,"
@@ -79,29 +74,21 @@ def test_sold_out_calculation(tmp_path, on_hand, reserved, available, sold_out):
 # --- HTTP service ----------------------------------------------------------------
 
 @pytest.fixture
-def server():
-    srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(DEFAULT_CSV))
-    thread = threading.Thread(target=srv.serve_forever, daemon=True)
-    thread.start()
-    yield f"http://127.0.0.1:{srv.server_address[1]}"
-    srv.shutdown()
-    srv.server_close()
+def client():
+    return TestClient(create_app(DEFAULT_CSV))
 
 
-def get(url):
-    try:
-        with urllib.request.urlopen(url) as resp:
-            return resp.status, json.load(resp)
-    except urllib.error.HTTPError as e:
-        return e.code, json.load(e)
+def get(client, path):
+    resp = client.get(path)
+    return resp.status_code, resp.json()
 
 
-def test_health(server):
-    assert get(f"{server}/health") == (200, {"status": "ok"})
+def test_health(client):
+    assert get(client, "/health") == (200, {"status": "ok"})
 
 
-def test_oat_endpoint_reports_sold_out_rows(server):
-    status, body = get(f"{server}/milk/oat")
+def test_oat_endpoint_reports_sold_out_rows(client):
+    status, body = get(client, "/milk/oat")
     assert status == 200
     assert body["component"] == "oat_milk"
     assert body["sold_out_count"] == 1
@@ -109,12 +96,12 @@ def test_oat_endpoint_reports_sold_out_rows(server):
     assert [r["store_id"] for r in body["rows"] if r["sold_out"]] == ["10482"]
 
 
-def test_component_query_matches_oat_shortcut(server):
-    assert get(f"{server}/milk?component=oat_milk")[1] == get(f"{server}/milk/oat")[1]
+def test_component_query_matches_oat_shortcut(client):
+    assert get(client, "/milk?component=oat_milk")[1] == get(client, "/milk/oat")[1]
 
 
-def test_all_milk_endpoint(server):
-    status, body = get(f"{server}/milk")
+def test_all_milk_endpoint(client):
+    status, body = get(client, "/milk")
     assert status == 200
     assert body["component"] == "all_milk"
     assert len(body["rows"]) == 9
@@ -122,11 +109,11 @@ def test_all_milk_endpoint(server):
     assert body["sold_out_count"] == 2
 
 
-def test_unknown_component_returns_400(server):
-    status, body = get(f"{server}/milk?component=soy_milk")
+def test_unknown_component_returns_400(client):
+    status, body = get(client, "/milk?component=soy_milk")
     assert status == 400
     assert "soy_milk" in body["error"]
 
 
-def test_unknown_path_returns_404(server):
-    assert get(f"{server}/nope")[0] == 404
+def test_unknown_path_returns_404(client):
+    assert client.get("/nope").status_code == 404
