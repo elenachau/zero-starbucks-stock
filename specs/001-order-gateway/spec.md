@@ -161,6 +161,11 @@ with the try-again message and no payment starts.
    Grande Caffè Latte, Oatmilk) is submitted at 2025-03-07T06:31:07-08:00, **Then** it is refused
    with "We can't reach this store right now. Please try again in a moment." and no
    payment starts.
+4. **Given** the store stock service does not answer the store record lookup for SB-10482 within 2
+   seconds, **When** order MO-250307-0023 (1 Grande Caffè Latte, Oatmilk) is submitted at
+   2025-03-07T06:31:07-08:00, **Then** it is refused with "We can't reach this store right now.
+   Please try again in a moment." (not "We can't find store SB-10482."), no hours question or
+   check-and-reserve request is sent, and no payment starts.
 
 ---
 
@@ -249,7 +254,8 @@ not-found refusal comes back without any hours or stock question.
 - **FR-009**: The gateway MUST pass the store ID on exactly as sent, in the mobile orders CSV
   format (for example `SB-10482`). When the store stock service has no store record for that ID,
   the order service MUST refuse the order before any hours or stock question with the message
-  "We can't find store {store ID}."
+  "We can't find store {store ID}." An error or timeout on the store record lookup MUST NOT be
+  treated as "no store record"; it is refused under FR-008b instead.
 - **FR-010**: The store stock service MUST report a milk or add-in that has no stock record at
   that store as unavailable, and the order service MUST refuse the order with the stock message
   naming it.

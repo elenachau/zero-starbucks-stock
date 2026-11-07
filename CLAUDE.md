@@ -77,7 +77,9 @@ Stock message template, used by rules R2–R5:
   order MUST be refused, MUST NOT start payment, and MUST NOT be treated as open or in stock.
   This message MUST NOT name a line or component, because nothing was found to be unavailable.
   Message: `We can't reach this store right now. Please try again in a moment.`
-  Tested by: spec.md User Story 5 scenarios 1-3 (scenario 3: MO-250307-0023 times out).
+  A store record lookup that errors or times out MUST get this message, never R7's.
+  Tested by: spec.md User Story 5 scenarios 1-4 (scenario 3: MO-250307-0023's check-and-reserve
+  times out; scenario 4: the store record lookup times out before hours are checked).
 - **R7 unknown store.** When the store stock service has no store record for the order's store
   ID, the order MUST be refused before any hours or stock question. Message:
   `We can't find store {store_id}.`
