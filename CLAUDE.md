@@ -20,7 +20,9 @@ Rules every agent and contributor MUST follow in this repo. The project constitu
 
 Source: `data/mobile_orders_2025-03-03_to_09.csv`, rows with `expected_outcome = refused`
 (21 rows, 5 scenario tags). This CSV is the only data source for these rules; store IDs are
-used exactly as it writes them (for example `SB-10482`). Stock is judged by this rule:
+used exactly as it writes them (for example `SB-10482`). The store stock service is the only
+service that holds store hours, closure flags, stock and reservations; the order service MUST
+ask it and MUST NOT hold any of them. Stock is judged by the store stock service with this rule:
 available = `quantity_on_hand` − `reserved_quantity`, and a component is out when
 available ≤ 0. Checks MUST run in this order: store hours first, then stock, line by line.
 The order service MUST refuse at the first failing check and MUST NOT take payment for a
@@ -30,8 +32,10 @@ filled from the order line. All 21 refused rows MUST also pass spec.md SC-001.
 Stock message template, used by rules R2–R5:
 `Line {line_item_number}, {size} {drink_name}: {component} is unavailable at this store right now.`
 
-- **R1 `store_closed` (hours, not stock).** When the store is closed at `submitted_at`, the
-  order MUST be refused before any stock check, whatever the drinks are. Message:
+- **R1 `store_closed` (hours, not stock).** The store stock service owns store hours and decides
+  whether the store is open at `submitted_at`. The order service MUST ask it before asking about
+  stock, and when the answer is closed MUST refuse the order before any stock question, whatever
+  the drinks are. Message:
   `{store_name} is closed right now and can't take mobile orders.`
   Rows: MO-250303-0001, MO-250305-0013, MO-250308-0034, MO-250309-0040 (all SB-20516,
   Bellevue Square).
@@ -48,7 +52,8 @@ Stock message template, used by rules R2–R5:
   MO-250309-0039 (Caramel Drizzle); MO-250309-0038 (Brown Sugar Syrup).
   Tested by: spec.md User Story 3 scenario 2.
 - **R4 `stock_runs_out_mid_order`.** Once an order passes its checks, the order service MUST
-  add its component quantities to `reserved_quantity` before payment starts, so the next order
+  ask the store stock service to add its component quantities to `reserved_quantity` before
+  payment starts, so the next order
   is checked against the reduced available stock. The order that takes the last available unit
   MUST be accepted, and every later order needing that component MUST be refused with that
   component named.
