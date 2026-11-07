@@ -118,13 +118,20 @@ and confirm the first is accepted and the second is refused naming that componen
    Shaken Espresso, Oatmilk, Brown Sugar Syrup) is submitted at 06:36, **Then** it is refused with
    "Line 1, Grande Iced Brown Sugar Oatmilk Shaken Espresso: Oatmilk is unavailable at this store
    right now." and no payment starts.
-3. **Given** the store stock service reported 1 Oatmilk available at store SB-10482 when the
-   customer opened the menu before 2025-03-07T06:31:07-08:00, and order MO-250307-0023 submitted
-   at 2025-03-07T06:31:07-08:00 was then accepted and reserved that 1 Oatmilk, **When** the same
-   customer submits order MO-250307-0024 (1 Grande Iced Brown Sugar Oatmilk Shaken Espresso,
-   Oatmilk, Brown Sugar Syrup) at 2025-03-07T06:36:42-08:00, **Then** it is refused with "Line 1,
-   Grande Iced Brown Sugar Oatmilk Shaken Espresso: Oatmilk is unavailable at this store right
-   now.", no stock is reserved for it, and no payment starts.
+3. **Mid-order: available at menu time, gone at checkout.** Store SB-10482, Oatmilk, stock at each
+   moment (on hand / reserved / available):
+   - **Menu time, 2025-03-07T06:30:00-08:00** (test setup; the CSV has no menu time): 1 / 0 / 1.
+     The store stock service shows the customer Oatmilk as available; nothing is reserved for
+     them (FR-013).
+   - **2025-03-07T06:31:07-08:00**: order MO-250307-0023 (1 Grande Caffè Latte, Oatmilk) is
+     accepted and its check-and-reserve request reserves the 1 Oatmilk: 1 / 1 / 0.
+   - **Checkout, 2025-03-07T06:36:42-08:00**: still 1 / 1 / 0.
+
+   **Given** that stock history, **When** the customer who saw the menu submits order
+   MO-250307-0024 (1 Grande Iced Brown Sugar Oatmilk Shaken Espresso, Oatmilk, Brown Sugar Syrup)
+   at 2025-03-07T06:36:42-08:00, **Then** its check-and-reserve request reserves nothing, it is
+   refused with "Line 1, Grande Iced Brown Sugar Oatmilk Shaken Espresso: Oatmilk is unavailable
+   at this store right now.", no payment starts, and SB-10482 Oatmilk stays at 1 / 1 / 0.
 4. **Given** store SB-10482 has 1 Oatmilk available, orders MO-250307-0023 and MO-250307-0024 have
    both passed the hours check, and the store stock service handles MO-250307-0023's
    check-and-reserve request first and reserves the 1 Oatmilk, **When** it then handles
