@@ -17,9 +17,9 @@
   and only then does payment start.
 - Q: What happens to reserved stock if payment fails or the customer never completes it? → A:
   Released at once on payment failure, or after 10 minutes with no payment result.
-- Q: How does an order's store ID (`SB-10482`) map to the stock data's store ID (`10482`)? → A:
-  Strip the `SB-` prefix and match the number exactly; `SB-11937` is its own store, not Capitol
-  Hill `11307`; an ID with no store record is refused.
+- Q: Which store IDs does the order service use? → A: Exactly the IDs in the mobile orders CSV
+  (`SB-10482`, `SB-11937`, `SB-20516`), with no mapping to any other store list; an ID with no
+  store record is refused.
 - Q: If a milk or add-in has no stock record at a store, is it available or unavailable? → A:
   Unavailable; every component a store sells needs a stock record.
 - Q: Where does the order service get store hours? → A: Weekly opening hours per store in
@@ -41,7 +41,7 @@ it is accepted and handed to payment.
 
 **Acceptance Scenarios**:
 
-1. **Given** First Hill (10482) is open and has 2% Milk, Vanilla Syrup and Caramel Drizzle in
+1. **Given** store SB-10482 is open and has 2% Milk, Vanilla Syrup and Caramel Drizzle in
    stock, **When** a customer orders 1 Grande Iced Caramel Macchiato with 2% Milk, Vanilla Syrup
    and Caramel Drizzle, **Then** the order is accepted and the customer is sent to payment.
 2. **Given** a store is open, **When** a customer orders 2 Pike Place Roast with milk `None` and no
@@ -80,14 +80,14 @@ refusal names that component.
 
 **Acceptance Scenarios**:
 
-1. **Given** First Hill has 0 Oatmilk available, **When** order MO-250307-0031 (1 Grande Matcha Tea
+1. **Given** store SB-10482 has 0 Oatmilk available, **When** order MO-250307-0031 (1 Grande Matcha Tea
    Latte, Oatmilk) is submitted, **Then** it is refused with "Line 1, Grande Matcha Tea Latte:
    Oatmilk is unavailable at this store right now." and no payment starts.
-2. **Given** First Hill has 0 Caramel Drizzle available, **When** order MO-250306-0019 (1 Grande
+2. **Given** store SB-10482 has 0 Caramel Drizzle available, **When** order MO-250306-0019 (1 Grande
    Iced Caramel Macchiato, 2% Milk, Vanilla Syrup; Caramel Drizzle) is submitted, **Then** it is
    refused with "Line 1, Grande Iced Caramel Macchiato: Caramel Drizzle is unavailable at this
    store right now." and no payment starts.
-3. **Given** store 11937 has 3 Brown Sugar Syrup available (more than 0 but fewer than 4),
+3. **Given** store SB-11937 has 3 Brown Sugar Syrup available (more than 0 but fewer than 4),
    **When** order MO-250307-0028 (4 Grande Iced Brown Sugar Oatmilk Shaken Espresso, Oatmilk,
    Brown Sugar Syrup) is submitted, **Then** it is refused with "Line 1, Grande Iced Brown Sugar
    Oatmilk Shaken Espresso: Brown Sugar Syrup is unavailable at this store right now.", no stock
@@ -108,7 +108,7 @@ and confirm the first is accepted and the second is refused naming that componen
 
 **Acceptance Scenarios**:
 
-1. **Given** First Hill has 1 Oatmilk available at 06:31 on 2025-03-07, **When** order
+1. **Given** store SB-10482 has 1 Oatmilk available at 06:31 on 2025-03-07, **When** order
    MO-250307-0023 (1 Grande Caffè Latte, Oatmilk) is submitted, **Then** it is accepted and 1
    Oatmilk is reserved before payment starts, leaving 0 available.
 2. **Given** scenario 1 has run, **When** order MO-250307-0024 (1 Grande Iced Brown Sugar Oatmilk
@@ -131,7 +131,7 @@ and confirm the first is accepted and the second is refused naming that componen
   Soymilk, Extra Shot): it is treated as unavailable and the order is refused naming it.
 - Payment fails or no payment result arrives within 10 minutes: the order's reservation is
   released and the stock becomes available to the next order.
-- The store ID has no store record after the `SB-` prefix is removed: the order is refused.
+- The store ID has no store record: the order is refused with "We can't find store {store ID}."
 
 ## Requirements *(mandatory)*
 
@@ -156,10 +156,10 @@ and confirm the first is accepted and the second is refused naming that componen
   and only then start payment.
 - **FR-008a**: The order service MUST release an order's reservation at once when payment fails,
   and after 10 minutes when no payment result has arrived.
-- **FR-009**: The gateway MUST remove the `SB-` prefix from the store ID and match the remaining
-  number exactly to a store record (`SB-10482` → `10482`). `SB-11937` is its own store, not
-  Capitol Hill `11307`. An order whose store ID has no store record MUST be refused before any
-  hours or stock check with the message "We can't find store {store ID}."
+- **FR-009**: The gateway MUST use the store ID exactly as sent, in the mobile orders CSV format
+  (for example `SB-10482`), and match it to a store record. An order whose store ID has no store
+  record MUST be refused before any hours or stock check with the message "We can't find store
+  {store ID}."
 - **FR-010**: The order service MUST treat a milk or add-in that has no stock record at that store
   as unavailable and refuse the order with the stock message naming it.
 - **FR-011**: The order service MUST decide whether a store is open from that store's weekly
@@ -172,7 +172,7 @@ and confirm the first is accepted and the second is refused naming that componen
   lines.
 - **Order line**: one drink in an order; has line number, drink name, size, milk, add-ins and
   quantity.
-- **Store**: has a store ID (digits only, no `SB-` prefix), name, weekly opening hours in
+- **Store**: has a store ID (as in the mobile orders CSV, for example `SB-10482`), name, weekly opening hours in
   Pacific time, and a temporary-closure flag.
 - **Stock record**: one component at one store; has on-hand and reserved quantities. Every
   component a store sells MUST have one.
@@ -195,10 +195,10 @@ and confirm the first is accepted and the second is refused naming that componen
 
 ## Assumptions
 
-- Test stock data for the sample week is set per order so each order's expected outcome holds;
-  the 7 March 06:45 snapshot alone does not cover the whole week (it shows Vanilla Sweet Cream
-  Cold Foam in stock at First Hill, yet MO-250307-0026 at 06:43 expects a refusal for it).
-- Bellevue Square (`20516`) is under a temporary closure for the whole sample week.
+- The mobile orders CSV (data/mobile_orders_2025-03-03_to_09.csv) is the only data source for
+  this feature. Each test sets store hours and stock so that the order's `expected_outcome` and
+  `expected_message` hold; no other stock file is used.
+- Bellevue Square (`SB-20516`) is under a temporary closure for the whole sample week.
 - One order is checked as a whole: if any line fails, the whole order is refused.
 - Payment itself is handled by an existing payment provider and is out of scope here.
 - Drink recipes (how much of each component a drink uses) are one unit per drink per component

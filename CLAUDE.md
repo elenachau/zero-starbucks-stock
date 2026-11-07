@@ -19,7 +19,8 @@ Rules every agent and contributor MUST follow in this repo. The project constitu
 ## Refusal rules (one per refused order type)
 
 Source: `data/mobile_orders_2025-03-03_to_09.csv`, rows with `expected_outcome = refused`
-(21 rows, 5 scenario tags). Stock is judged by the rule in `milk_stock_service.py`:
+(21 rows, 5 scenario tags). This CSV is the only data source for these rules; store IDs are
+used exactly as it writes them (for example `SB-10482`). Stock is judged by this rule:
 available = `quantity_on_hand` − `reserved_quantity`, and a component is out when
 available ≤ 0. Checks MUST run in this order: store hours first, then stock, line by line.
 The order service MUST refuse at the first failing check and MUST NOT take payment for a
