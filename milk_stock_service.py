@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Milk stock service (FastAPI).
 
-Reads a store stock snapshot CSV and reports whether milk is in stock.
+Reads a store stock CSV and reports whether milk is in stock. No stock file is
+committed to the repo; the path comes from the STOCK_SNAPSHOT_CSV environment
+variable (or create_app(csv_path)), and the app refuses to start without one.
 
 Available quantity = quantity_on_hand - reserved_quantity.
 A milk row is SOLD OUT when available quantity <= 0.
@@ -13,8 +15,12 @@ Endpoints:
   GET /milk/oat                -> shortcut for oat milk rows only
 
 Run:
-  uvicorn milk_stock_service:app --port 8080
-  (set STOCK_SNAPSHOT_CSV to read a different snapshot)
+  STOCK_SNAPSHOT_CSV=/path/to/stock.csv \
+    uvicorn milk_stock_service:create_app --factory --port 8080
+
+Stock CSV columns: store_id, store_name, store_open, component_id,
+component_name, component_type, quantity_on_hand, reserved_quantity,
+last_updated_at.
 """
 
 import csv
@@ -25,12 +31,12 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-DEFAULT_CSV = Path(__file__).parent / "data" / "stock_snapshot_2025-03-07_0645.csv"
+STOCK_CSV_ENV = "STOCK_SNAPSHOT_CSV"
 MILK_COMPONENTS = {"oat_milk", "almond_milk", "two_pct_milk"}
 
 
 def load_milk_rows(csv_path):
-    """Read the snapshot and return milk rows with calculated availability."""
+    """Read the stock CSV and return milk rows with calculated availability."""
     rows = []
     with open(csv_path, newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
@@ -55,7 +61,12 @@ def load_milk_rows(csv_path):
 
 
 def create_app(csv_path=None):
-    csv_path = Path(csv_path or os.environ.get("STOCK_SNAPSHOT_CSV", DEFAULT_CSV))
+    csv_path = csv_path or os.environ.get(STOCK_CSV_ENV)
+    if not csv_path:
+        raise RuntimeError(
+            f"No stock CSV configured: set {STOCK_CSV_ENV} to the path of a stock CSV."
+        )
+    csv_path = Path(csv_path)
     load_milk_rows(csv_path)  # fail fast if the CSV is missing or malformed
 
     app = FastAPI(title="Milk stock service")
@@ -66,7 +77,7 @@ def create_app(csv_path=None):
                 "error": f"unknown milk component '{component}'",
                 "valid": sorted(MILK_COMPONENTS),
             })
-        # Re-read on every request so a refreshed snapshot is picked up.
+        # Re-read on every request so a refreshed stock file is picked up.
         rows = load_milk_rows(csv_path)
         if component:
             rows = [r for r in rows if r["component_id"] == component]
@@ -90,6 +101,3 @@ def create_app(csv_path=None):
         return milk_response("oat_milk")
 
     return app
-
-
-app = create_app()
